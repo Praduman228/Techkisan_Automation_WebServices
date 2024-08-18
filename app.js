@@ -12,7 +12,7 @@ const adminRoute=require("./routes/adminRoutes")
 require('dotenv').config()
 app.use(cookieParser())
 app.use(cors({
-  origin: ['https://techkisan-automation-web.onrender.com'], 
+  origin: ['https://techkisan-automation-web.vercel.app'], 
   methods: ['POST,GET'],
   credentials: true,               
 }));
