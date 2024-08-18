@@ -18,7 +18,9 @@ module.exports.loginUser = async function (req, res) {
         }
 
         const token = genrateToken(employee);
-        res.cookie('token', token)
+        res.cookie('token', token,{httpOnly: true,
+             sameSite: 'Strict'
+        })
         res.json({ success: true, message: 'Login successful' });
     } catch (e) {
         console.log(e);
