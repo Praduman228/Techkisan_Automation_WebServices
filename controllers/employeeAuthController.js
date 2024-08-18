@@ -19,7 +19,7 @@ module.exports.loginUser = async function (req, res) {
 
         const token = genrateToken(employee);
         res.cookie('token', token,{httpOnly: true,
-             sameSite: 'Strict',secure:true 
+             sameSite: 'Strict', secure: process.env.NODE_ENV === 'production'
         })
         res.json({ success: true, message: 'Login successful' });
     } catch (e) {
