@@ -16,6 +16,7 @@ require('dotenv').config()
 app.use(cookieParser())
 app.use(cors({
   origin: ['https://techkisan-automation-web.vercel.app'], 
+  methods: ['GET', 'POST'],
   credentials: true,               
 }));
 app.use(express.json());
