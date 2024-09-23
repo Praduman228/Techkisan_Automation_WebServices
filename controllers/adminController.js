@@ -18,7 +18,12 @@ module.exports.loginUser = async function (req, res) {
     }
 
     const token = genrateToken(admin);
-    res.cookie("token", token);
+    res.cookie("token", token, {
+      httpOnly: true,        // For security, make sure the cookie is not accessible via JavaScript
+      secure: true,          // Only send the cookie over HTTPS
+      sameSite: 'None',      // Allows cross-origin cookies
+      
+    });
     return res.json({ success: true, message: 'Login successful' });
 
   } catch (e) {
