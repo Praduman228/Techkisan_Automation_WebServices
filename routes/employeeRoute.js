@@ -1,66 +1,25 @@
 const express = require('express');
 const router=express.Router();
-const {loginUser , logoutUser}=require("../controllers/employeeAuthController")
+const {loginUser , logoutUser,changePassword}=require("../controllers/employeeAuthController")
+const{createEmployee}=require("../controllers/employeeCreationController")
 const employeeModel=require("../models/employee-model")
-const nodemailer = require('nodemailer');
-const crypto=require("crypto")
+const leaveModel=require("../models/leave-model")
 const jwt=require("jsonwebtoken")
 const bcrypt=require("bcrypt")
-
+const empimageModel=require("../models/employeeimg-model")
 const upload=require("../configs/mutler-setup")
-
-
-
+const {punchIn,punchOut}=require("../controllers/employeePunchController")
+const {addWfh}=require("../controllers/employeeWfhController");
+const managerModel = require('../models/manager-model');
+const nodemailer = require("nodemailer")
 router.post('/login',loginUser)
 
 
 router.post('/logout',loginUser)
 
+router.post('/create', upload.single("Image"),createEmployee);
 
-router.post('/create', upload.single("Image") , async(req, res) => {
-  const { firstName, lastName ,email} = req.body;
-  let username = firstName.toLowerCase() + lastName.toLowerCase() + crypto.randomBytes(3).toString('hex');
-  const password = crypto.randomBytes(6).toString('hex');
-  username=username.replaceAll(" ","")
-  const saltRounds = 10;
-  const hashedPassword = await bcrypt.hash(password, saltRounds);
-  const newEmployee = new employeeModel({
-    ...req.body,
-    Image: req.file.buffer,
-    ImageType: req.file.mimetype,
-    password,
-    username,
-    password:hashedPassword
-  });
-  
-  await newEmployee.save();
 
-  const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: 'praduman.228@gmail.com',
-      pass: 'fyig lxjy bscl qqkk'
-    }
-  });
-
-  const mailOptions = {
-    from: 'your-email@gmail.com',
-    to: email,
-    subject: 'Your Employee Account Details',
-    text: `Hello ${firstName},\n\n Your account has been created. Here are your login details:\n\nUsername: ${username}\nPassword: ${password}\n\nPlease change your password after logging in for the first time.\n\nThank you!\n\nTechkisan Automation :)`
-  };
-  transporter.sendMail(mailOptions, (error, info) => {
-    if (error) {
-      console.error('Error sending email:', error);
-      return res.status(500).json({ message: 'Failed to send email' });
-    }
-    console.log('Email sent:', info.response);
-  });
-  
-
-    console.log(newEmployee)
-    res.status(200).json({message: 'Email sent and created employee successfully'})
-})
 
 router.get('/empdata', async (req, res) => {
   try {
@@ -77,60 +36,142 @@ router.get('/empdata', async (req, res) => {
         return res.status(401).json({ message: 'Token missing' });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET); 
-
-    const employee = await employeeModel.findOne({username:decoded}); 
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const employee = await employeeModel.findOne({username:decoded.user}).populate("manager")
+    
   
     if (!employee) {
         return res.status(404).json({ message: 'Employee not found' });
     }
 
-    res.json(employee);
+    const employeeImages = await empimageModel.find({ employee: employee._id });
+    const empleaves = await leaveModel.find({ employeeId: employee._id });
+    res.json({ employee: employee, empimg:employeeImages ,empleaves:empleaves});
 } catch (error) {
     res.status(401).json({ message: 'Unauthorized' });
 }
 });
 
+router.post("/addWfh",addWfh)
 
 
-router.post("/changepassword", async(req, res) => {
- const { currentPassword, newPassword } = req.body;
- const authHeader = req.headers.authorization;
 
- if (!authHeader) {
-     return res.status(401).json({ message: 'Authorization header missing' });
- }
+router.post("/changepassword", changePassword)
 
- const token = authHeader.split(' ')[1];
 
- if (!token) {
-     return res.status(401).json({ message: 'Token missing' });
- }
 
- const username = jwt.verify(token, process.env.JWT_SECRET);
- 
- const employee = await employeeModel.findOne({username: username });
- 
- if (!employee) {
-     return res.status(404).json({ message: 'Employee not found' });
- }
- bcrypt.compare(currentPassword, employee.password, (err, isMatch) => {
-  if (err) return res.status(err).json({ message:"Server error"});
-  if (isMatch) {
-    const saltRounds = 10;
-    bcrypt.hash(newPassword, saltRounds, (err, hashedPassword) => {
-      if (err) return res.status(err).json({ message: "Server error" });
-      employee.password = hashedPassword;
-      employee.save().then(() => {
-        res.json({ message: "Password changed successfully" });
-      });
-    });
+router.post("/punchIn",punchIn)
+
+router.post('/punchOut' , punchOut)
+
+
+router.get("/getLeaves",async(req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) {
+    return res.status(401).json({ message: 'Authorization header missing' });
   }
-  else{
-    res.json({ message: "Incorrect current password" });
+
+  const token = authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ message: 'Token missing' });
   }
+
+  const decoded = jwt.verify(token, process.env.JWT_SECRET); 
+
+  const employee = await employeeModel.findOne({username:decoded.user}); 
+
+  if (!employee) {
+    return res.status(404).json({ message: 'Employee not found' });
+  }
+
+  const empleaves = await leaveModel.find({ employeeId: employee._id });
+  res.json(empleaves);
+})
+
+
+router.post("/addLeave", async function(req, res){
+  const {leaveType,fromDate,toDate,fromTime,toTime,reason,leaveStation,vacationAddress,contactNumber}=req.body
+const authHeader = req.headers.authorization;
+  if (!authHeader) {
+    return res.status(401).json({ message: 'Authorization header missing' });
 }
-)})
+
+const token = authHeader.split(' ')[1];
+
+if (!token) {
+    return res.status(401).json({ message: 'Token missing' });
+}
+
+const decoded = jwt.verify(token, process.env.JWT_SECRET); 
+
+const employee = await employeeModel.findOne({username:decoded.user}).populate("manager"); 
+
+if (!employee) {
+    return res.status(404).json({ message: 'Employee not found' });
+}
+
+const leave = new leaveModel({
+  typeofLeaves: leaveType,
+  fromDate: fromDate,
+  toDate: toDate,
+  employeeId: employee._id,
+  fromTime: fromTime,
+  toTime: toTime,
+  reason: reason,
+  managerId: employee.manager._id,
+  vocationalAddress: leaveStation,
+  contactno: contactNumber
+})
+
+await leave.save();
+
+const leaveid=await leaveModel.findOne({employeeId: employee._id});
+
+employee.leaves.push(leaveid._id);
+
+const transporter = nodemailer.createTransport({
+          service: 'gmail',
+          auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASS
+          }
+        });
+        const mailOptions = {
+          from: process.env.EMAIL_USER,
+          to: employee.manager.email,
+          subject: `Leave Request Submitted by ${employee.firstName+" "+employee.lastName}`,
+          text: `Dear ${employee.manager.firstName+" "+employee.manager.lastName},\n\nThis is to inform you that ${employee.firstName} has submitted a leave request through the employee dashboard.\n\n Leave Type: ${leave.typeofLeaves}\n Leave Dates: ${new Date(leave.fromDate).toLocaleDateString()} to  ${new Date(leave.toDate).toLocaleDateString()} \n Reason : ${leave.reason}\n Please review and take the necessary action to approve or deny this request on your manager dashboard.\n\n Thank you for your prompt attention to this request.\n\n Best regards,\n\n TechKisan Automations`
+        };
+    
+        transporter.sendMail(mailOptions, (error, info) => {
+          if (error) {
+            console.error('Error sending email:', error);
+            return res.status(500).json({ message: 'Failed to send email' });
+          }
+          console.log('Email sent:', info.response);
+        });
+    
+        
+        res.status(200);
+      
+
+
+res.json({ message: "Leave request sent successfully",leave:leave}).status(200);
+
+
+})
+
+router.get('/deleteLeaves/:leaveId', async (req, res) => {
+  try {
+    const { leaveId } = req.params;
+    await leaveModel.findByIdAndDelete(leaveId);
+    res.status(200).json({ message: 'Leave successfully canceled' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error canceling leave' });
+  }
+});
 
 
   module.exports = router;
