@@ -15,8 +15,13 @@ const employeeModel=require("./models/employee-model")
 require('dotenv').config()
 app.use(cookieParser())
 app.use(cors({
+<<<<<<< HEAD
   origin: ['http://localhost:3000'], 
   methods: ['POST,GET','DELETE'],
+=======
+  origin: ['https://techkisan-automation-web.vercel.app'], 
+  methods: ['POST,GET'],
+>>>>>>> 4265c2af63021c1c280409884fba0d45ed0c01d0
   credentials: true,               
 }));
 app.use(express.json());

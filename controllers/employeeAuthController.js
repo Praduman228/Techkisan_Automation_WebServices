@@ -39,9 +39,16 @@ module.exports.loginUser = async function (req, res) {
 
         //
         const token = genrateToken(employee);
+<<<<<<< HEAD
         res.cookie('token', token);
         return res.json({ success: true, message: 'employee' });
 
+=======
+        res.cookie('token', token,{httpOnly: true,
+             sameSite: 'Strict', secure: process.env.NODE_ENV === 'production',path:'/'
+        })
+        res.json({ success: true, message: 'Login successful' });
+>>>>>>> 4265c2af63021c1c280409884fba0d45ed0c01d0
     } catch (e) {
         console.error(e);
         return res.status(500).send("Server Error");
